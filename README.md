@@ -37,6 +37,7 @@ kaappi --lib-path /path/to/kaappi-json/lib your-script.scm
 | JSON | Scheme | Example |
 |---|---|---|
 | object | alist | `(("key" . "value"))` |
+| empty object | `json-empty-object` | `(json-empty-object? x)` to test |
 | array | list | `(1 2 3)` |
 | string | string | `"hello"` |
 | number (int) | exact integer | `42` |
@@ -57,6 +58,18 @@ Vectors are written as JSON arrays: `#(1 2 3)` → `[1,2,3]`.
 | `(json-write-string val)` | Write JSON to a string |
 | `(json-null)` | The null value (`'null` symbol) |
 | `(json-null? val)` | Test for null |
+| `json-empty-object` | The empty object value (JSON `{}`) |
+| `(json-empty-object? val)` | Test for the empty object |
+
+Because an empty object would otherwise be indistinguishable from the
+empty array (both are `()` in Scheme), `{}` reads as the distinct
+`json-empty-object` value and writes back as `{}`:
+
+```scheme
+(json-read-string "{}")   ; => json-empty-object
+(json-read-string "[]")   ; => ()
+(json-write-string json-empty-object) ; => "{}"
+```
 
 ## Features
 

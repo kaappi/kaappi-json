@@ -48,7 +48,9 @@
 (check "nested array" '((1 2) (3 4)) (json-read-string "[[1,2],[3,4]]"))
 
 ;; Objects
-(check "empty object" '() (json-read-string "{}"))
+(check "empty object" json-empty-object (json-read-string "{}"))
+(check "empty object predicate" #t (json-empty-object? (json-read-string "{}")))
+(check "empty object is not array" #f (equal? (json-read-string "{}") '()))
 (check "simple object"
   '(("name" . "Alice") ("age" . 30))
   (json-read-string "{\"name\": \"Alice\", \"age\": 30}"))
@@ -78,7 +80,9 @@
 (check "write false" "false" (json-write-string #f))
 (check "write null" "null" (json-write-string 'null))
 (check "write empty array" "[]" (json-write-string '()))
-;; Note: '() is empty list → "[]" since it's not a pair-of-pairs (alist)
+;; Note: '() is the empty array → "[]"; the empty *object* is
+;; (json-empty-object) and writes as "{}"
+(check "write empty object" "{}" (json-write-string json-empty-object))
 
 ;; Escape sequences
 (check "write escape quote" "\"a\\\"b\"" (json-write-string "a\"b"))
@@ -121,6 +125,10 @@
   "{\"data\":[{\"id\":1},{\"id\":2}]}"
   (round-trip "{\"data\": [{\"id\": 1}, {\"id\": 2}]}"))
 (check "rt booleans" "[true,false,null]" (round-trip "[true, false, null]"))
+(check "rt empty array" "[]" (round-trip "[]"))
+(check "rt empty object" "{}" (round-trip "{}"))
+(check "rt nested empty object" "{\"o\":{}}" (round-trip "{\"o\":{}}"))
+(check "rt nested empty array" "{\"xs\":[]}" (round-trip "{\"xs\":[]}"))
 
 (newline)
 (display "=== Results: ")

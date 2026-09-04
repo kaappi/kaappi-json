@@ -2,6 +2,7 @@
 ;;;
 ;;; Mapping:
 ;;;   JSON object  → alist  (("key" . value) ...)
+;;;   JSON {}      → (json-empty-object), tested with json-empty-object?
 ;;;   JSON array   → list   (v1 v2 ...)
 ;;;   JSON string  → string
 ;;;   JSON number  → number (exact integer or inexact float)
@@ -13,11 +14,19 @@
   (import (scheme base) (scheme char) (scheme write))
   (export json-read json-read-string
           json-write json-write-string
-          json-null json-null?)
+          json-null json-null?
+          json-empty-object json-empty-object?)
   (begin
 
     (define json-null 'null)
     (define (json-null? v) (eq? v 'null))
+
+    ;; Distinct value for the empty JSON object, so that "{}" and "[]"
+    ;; can be told apart (both would otherwise read as the empty list).
+    (define-record-type %json-empty-object (make-%json-empty-object)
+      %json-empty-object?)
+    (define json-empty-object (make-%json-empty-object))
+    (define (json-empty-object? v) (%json-empty-object? v))
 
     ;; ---------------------------------------------------------------
     ;; Reader
@@ -147,7 +156,7 @@
       (skip-ws port)
       (if (and (not (eof-object? (peek-char port)))
                (char=? (peek-char port) #\}))
-          (begin (read-char port) '())
+          (begin (read-char port) json-empty-object)
           (let loop ((acc '()))
             (skip-ws port)
             (let ((key (read-json-string port)))
@@ -213,11 +222,11 @@
         ((integer? val) (display val port))
         ((number? val) (write-float val port))
         ((vector? val) (write-array (vector->list val) port))
+        ((json-empty-object? val) (display "{}" port))
         ((list? val)
          (if (and (pair? val) (pair? (car val)) (string? (caar val)))
              (write-object val port)
              (write-array val port)))
-        ((null? val) (display "{}" port))
         (else (error "json-write: unsupported type" val))))
 
     (define (write-json-str s port)
