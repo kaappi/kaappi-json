@@ -12,6 +12,9 @@
              (display "    expected: ") (write expected) (newline)
              (display "    got:      ") (write actual) (newline))))
 
+(define (check-error name thunk)
+  (check name #t (guard (c (#t #t)) (thunk) #f)))
+
 ;; --- Read tests ---
 
 (display "=== json-read-string ===") (newline)
@@ -49,8 +52,7 @@
 
 ;; Objects
 (check "empty object" json-empty-object (json-read-string "{}"))
-(check "empty object predicate" #t (json-empty-object? (json-read-string "{}")))
-(check "empty object is not array" #f (equal? (json-read-string "{}") '()))
+(check "empty array is not empty object" #f (json-empty-object? '()))
 (check "simple object"
   '(("name" . "Alice") ("age" . 30))
   (json-read-string "{\"name\": \"Alice\", \"age\": 30}"))
@@ -80,8 +82,8 @@
 (check "write false" "false" (json-write-string #f))
 (check "write null" "null" (json-write-string 'null))
 (check "write empty array" "[]" (json-write-string '()))
-;; Note: '() is the empty array → "[]"; the empty *object* is
-;; (json-empty-object) and writes as "{}"
+;; Note: '() is the empty array → "[]"; the empty *object* is the
+;; distinct value json-empty-object and writes as "{}"
 (check "write empty object" "{}" (json-write-string json-empty-object))
 
 ;; Escape sequences
@@ -107,6 +109,17 @@
 (check "write object with null"
   "{\"value\":null}"
   (json-write-string '(("value" . null))))
+
+;; --- Error handling ---
+
+(display "=== Errors ===") (newline)
+
+(check-error "eof in object" (lambda () (json-read-string "{\"a\":1")))
+(check-error "eof in array" (lambda () (json-read-string "[1")))
+(check-error "write dotted alist"
+  (lambda () (json-write-string '("a" . 1))))
+(check-error "write mixed list"
+  (lambda () (json-write-string '(("a" . 1) 2))))
 
 ;; --- Round-trip tests ---
 

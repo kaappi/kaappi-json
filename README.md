@@ -61,6 +61,9 @@ Vectors are written as JSON arrays: `#(1 2 3)` → `[1,2,3]`.
 | `json-empty-object` | The empty object value (JSON `{}`) |
 | `(json-empty-object? val)` | Test for the empty object |
 
+Note that `json-null` and `json-empty-object` are plain *values*, not
+procedures — do not call them.
+
 Because an empty object would otherwise be indistinguishable from the
 empty array (both are `()` in Scheme), `{}` reads as the distinct
 `json-empty-object` value and writes back as `{}`:
@@ -69,6 +72,25 @@ empty array (both are `()` in Scheme), `{}` reads as the distinct
 (json-read-string "{}")   ; => json-empty-object
 (json-read-string "[]")   ; => ()
 (json-write-string json-empty-object) ; => "{}"
+```
+
+**`json-empty-object` is not a list.** It is a record, so `assoc`,
+`length`, `map` and `null?` do not accept it. Code that walks parsed
+objects must check for it first, before treating the value as an alist:
+
+```scheme
+(define (object->alist d)
+  (if (json-empty-object? d) '() d))
+```
+
+Likewise, when Scheme code empties an alist it must substitute the
+sentinel before writing — an emptied alist is `()`, which writes as
+`[]`, not `{}`:
+
+```scheme
+;; remove key "a"; write the result as a JSON object
+(let ((rest (filter (lambda (kv) (not (string=? (car kv) "a"))) obj)))
+  (json-write (if (null? rest) json-empty-object rest)))
 ```
 
 ## Features
