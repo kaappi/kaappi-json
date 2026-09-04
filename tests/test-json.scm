@@ -12,6 +12,18 @@
              (display "    expected: ") (write expected) (newline)
              (display "    got:      ") (write actual) (newline))))
 
+;; The raised condition must carry the json-read:/json-write: message —
+;; the pre-fix code raised raw char=?/car type errors here, so a bare
+;; "did it raise" check would pass against the old code.
+(define (check-error name prefix thunk)
+  (check name #t
+    (guard (c ((error-object? c)
+               (let ((m (error-object-message c)))
+                 (and (>= (string-length m) (string-length prefix))
+                      (string=? (substring m 0 (string-length prefix))
+                                prefix)))))
+      (thunk) #f)))
+
 ;; --- Read tests ---
 
 (display "=== json-read-string ===") (newline)
@@ -48,7 +60,8 @@
 (check "nested array" '((1 2) (3 4)) (json-read-string "[[1,2],[3,4]]"))
 
 ;; Objects
-(check "empty object" '() (json-read-string "{}"))
+(check "empty object" json-empty-object (json-read-string "{}"))
+(check "empty array is not empty object" #f (json-empty-object? '()))
 (check "simple object"
   '(("name" . "Alice") ("age" . 30))
   (json-read-string "{\"name\": \"Alice\", \"age\": 30}"))
@@ -78,7 +91,9 @@
 (check "write false" "false" (json-write-string #f))
 (check "write null" "null" (json-write-string 'null))
 (check "write empty array" "[]" (json-write-string '()))
-;; Note: '() is empty list → "[]" since it's not a pair-of-pairs (alist)
+;; Note: '() is the empty array → "[]"; the empty *object* is the
+;; distinct value json-empty-object and writes as "{}"
+(check "write empty object" "{}" (json-write-string json-empty-object))
 
 ;; Escape sequences
 (check "write escape quote" "\"a\\\"b\"" (json-write-string "a\"b"))
@@ -104,6 +119,17 @@
   "{\"value\":null}"
   (json-write-string '(("value" . null))))
 
+;; --- Error handling ---
+
+(display "=== Errors ===") (newline)
+
+(check-error "eof in object" "json-read:" (lambda () (json-read-string "{\"a\":1")))
+(check-error "eof in array" "json-read:" (lambda () (json-read-string "[1")))
+(check-error "write dotted alist" "json-write:"
+  (lambda () (json-write-string '("a" . 1))))
+(check-error "write mixed list" "json-write:"
+  (lambda () (json-write-string '(("a" . 1) 2))))
+
 ;; --- Round-trip tests ---
 
 (display "=== Round-trip ===") (newline)
@@ -121,6 +147,10 @@
   "{\"data\":[{\"id\":1},{\"id\":2}]}"
   (round-trip "{\"data\": [{\"id\": 1}, {\"id\": 2}]}"))
 (check "rt booleans" "[true,false,null]" (round-trip "[true, false, null]"))
+(check "rt empty array" "[]" (round-trip "[]"))
+(check "rt empty object" "{}" (round-trip "{}"))
+(check "rt nested empty object" "{\"o\":{}}" (round-trip "{\"o\":{}}"))
+(check "rt nested empty array" "{\"xs\":[]}" (round-trip "{\"xs\":[]}"))
 
 (newline)
 (display "=== Results: ")

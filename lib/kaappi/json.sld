@@ -2,6 +2,8 @@
 ;;;
 ;;; Mapping:
 ;;;   JSON object  → alist  (("key" . value) ...)
+;;;   JSON {}      → json-empty-object  (a distinct value, NOT a list;
+;;;                  tested with json-empty-object?)
 ;;;   JSON array   → list   (v1 v2 ...)
 ;;;   JSON string  → string
 ;;;   JSON number  → number (exact integer or inexact float)
@@ -13,11 +15,18 @@
   (import (scheme base) (scheme char) (scheme write))
   (export json-read json-read-string
           json-write json-write-string
-          json-null json-null?)
+          json-null json-null?
+          json-empty-object json-empty-object?)
   (begin
 
     (define json-null 'null)
     (define (json-null? v) (eq? v 'null))
+
+    ;; Distinct value for the empty JSON object, so that "{}" and "[]"
+    ;; can be told apart (both would otherwise read as the empty list).
+    (define-record-type <json-empty-object> (make-json-empty-object)
+      json-empty-object?)
+    (define json-empty-object (make-json-empty-object))
 
     ;; ---------------------------------------------------------------
     ;; Reader
@@ -147,7 +156,7 @@
       (skip-ws port)
       (if (and (not (eof-object? (peek-char port)))
                (char=? (peek-char port) #\}))
-          (begin (read-char port) '())
+          (begin (read-char port) json-empty-object)
           (let loop ((acc '()))
             (skip-ws port)
             (let ((key (read-json-string port)))
@@ -157,6 +166,7 @@
                 (skip-ws port)
                 (let ((next (read-char port)))
                   (cond
+                    ((eof-object? next) (error "json-read: unexpected end of input"))
                     ((char=? next #\}) (reverse (cons (cons key val) acc)))
                     ((char=? next #\,) (loop (cons (cons key val) acc)))
                     (else (error "json-read: expected , or }" next)))))))))
@@ -174,6 +184,7 @@
               (skip-ws port)
               (let ((next (read-char port)))
                 (cond
+                  ((eof-object? next) (error "json-read: unexpected end of input"))
                   ((char=? next #\]) (reverse (cons val acc)))
                   ((char=? next #\,) (loop (cons val acc)))
                   (else (error "json-read: expected , or ]" next))))))))
@@ -213,11 +224,9 @@
         ((integer? val) (display val port))
         ((number? val) (write-float val port))
         ((vector? val) (write-array (vector->list val) port))
-        ((list? val)
-         (if (and (pair? val) (pair? (car val)) (string? (caar val)))
-             (write-object val port)
-             (write-array val port)))
-        ((null? val) (display "{}" port))
+        ((json-empty-object? val) (display "{}" port))
+        ((json-object-representation? val) (write-object val port))
+        ((list? val) (write-array val port))
         (else (error "json-write: unsupported type" val))))
 
     (define (write-json-str s port)
@@ -260,6 +269,21 @@
                                 (char=? (string-ref s i) #\E)) #t)
                            (else (loop (+ i 1))))))
           (display ".0" port))))
+
+    ;; True for a proper list whose every element is a pair with a
+    ;; string car — the representation read back for a JSON object.
+    ;; Checking every element (not just the first) keeps the writer
+    ;; from crashing on mixed lists like (("a" . 1) 2): those fall
+    ;; through to the "unsupported type" error instead.
+    (define (json-object-representation? val)
+      (and (pair? val)
+           (let loop ((xs val))
+             (cond ((null? xs) #t)
+                   ((pair? xs)
+                    (and (pair? (car xs))
+                         (string? (car (car xs)))
+                         (loop (cdr xs))))
+                   (else #f)))))
 
     (define (write-object alist port)
       (display #\{ port)
