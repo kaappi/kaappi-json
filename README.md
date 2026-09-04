@@ -56,7 +56,7 @@ Vectors are written as JSON arrays: `#(1 2 3)` → `[1,2,3]`.
 | `(json-read-string str)` | Parse JSON from a string |
 | `(json-write val [port])` | Write JSON to port (default: current-output-port) |
 | `(json-write-string val)` | Write JSON to a string |
-| `(json-null)` | The null value (`'null` symbol) |
+| `json-null` | The null value (`'null` symbol) |
 | `(json-null? val)` | Test for null |
 | `json-empty-object` | The empty object value (JSON `{}`) |
 | `(json-empty-object? val)` | Test for the empty object |
