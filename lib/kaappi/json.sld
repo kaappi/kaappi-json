@@ -164,12 +164,12 @@
               (expect-char port #\:)
               (let ((val (read-value port)))
                 (skip-ws port)
-              (let ((next (read-char port)))
-                (cond
-                  ((eof-object? next) (error "json-read: unexpected end of input"))
-                  ((char=? next #\}) (reverse (cons (cons key val) acc)))
-                  ((char=? next #\,) (loop (cons (cons key val) acc)))
-                  (else (error "json-read: expected , or }" next)))))))))
+                (let ((next (read-char port)))
+                  (cond
+                    ((eof-object? next) (error "json-read: unexpected end of input"))
+                    ((char=? next #\}) (reverse (cons (cons key val) acc)))
+                    ((char=? next #\,) (loop (cons (cons key val) acc)))
+                    (else (error "json-read: expected , or }" next)))))))))
 
     ;; --- Arrays ---
 

@@ -12,8 +12,17 @@
              (display "    expected: ") (write expected) (newline)
              (display "    got:      ") (write actual) (newline))))
 
-(define (check-error name thunk)
-  (check name #t (guard (c (#t #t)) (thunk) #f)))
+;; The raised condition must carry the json-read:/json-write: message —
+;; the pre-fix code raised raw char=?/car type errors here, so a bare
+;; "did it raise" check would pass against the old code.
+(define (check-error name prefix thunk)
+  (check name #t
+    (guard (c ((error-object? c)
+               (let ((m (error-object-message c)))
+                 (and (>= (string-length m) (string-length prefix))
+                      (string=? (substring m 0 (string-length prefix))
+                                prefix)))))
+      (thunk) #f)))
 
 ;; --- Read tests ---
 
@@ -114,11 +123,11 @@
 
 (display "=== Errors ===") (newline)
 
-(check-error "eof in object" (lambda () (json-read-string "{\"a\":1")))
-(check-error "eof in array" (lambda () (json-read-string "[1")))
-(check-error "write dotted alist"
+(check-error "eof in object" "json-read:" (lambda () (json-read-string "{\"a\":1")))
+(check-error "eof in array" "json-read:" (lambda () (json-read-string "[1")))
+(check-error "write dotted alist" "json-write:"
   (lambda () (json-write-string '("a" . 1))))
-(check-error "write mixed list"
+(check-error "write mixed list" "json-write:"
   (lambda () (json-write-string '(("a" . 1) 2))))
 
 ;; --- Round-trip tests ---
